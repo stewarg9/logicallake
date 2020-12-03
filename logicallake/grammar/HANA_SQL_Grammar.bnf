@@ -1,0 +1,435 @@
+# -*- coding: utf-8 -*-
+#
+#Created on Tue Dec  1 09:45:23 2020
+#
+#@author: kbzg512
+#
+
+@@grammar::HanaSQL
+@@eol_comments :: /#([^\n]*?)$/
+@@parseinfo :: False
+
+@@ignorecase :: True
+
+@@keyword :: SELECT LEFT RIGHT OUTER INNER FROM WHERE AND OR ON ANY ALL CASE END BY GROUP HAVING COUNT SUM AVG NULL IS IN NOT 
+
+#Select Statement (DML)
+start = select_statement
+;
+
+################################################################
+#	SELECT
+#	
+#
+#
+
+
+select_statement =
+select_clause:select_clause 
+from_clause:from_clause 
+[joined_table:joined_table] [{joined_table:joined_table}+] 
+[where_clause:where_clause]
+semi_colon
+$
+;
+
+select_clause = 
+ select_keyword select_list
+ ;
+ 
+ 
+select_list = selectitem:select_item  [{comma selectitem:select_item}+] 
+;
+
+select_item =
+     expression:expression [[as_keyword] ~ [column_alias:column_alias]]
+  |  [ table_alias:table_alias period ] column_name:column_name    
+  |  [ table_alias:table_alias period ] asterisk    
+  |  [ table_name:table_name period   ] asterisk
+;
+
+@name
+table_name = [schema_name:schema_name period] identifier:identifier
+;
+
+@name
+column_alias = identifier:identifier
+;
+
+
+asterisk = '*'; 
+
+ 
+################################################################
+#
+#	FROM
+#	
+#
+#
+
+
+from_clause = from_keyword table_expression:table_expression [{comma table_expression:table_expression}+]
+;
+
+table_expression = 
+ table_ref:table_ref  
+ | subquery:subquery
+ | joined_table:joined_table
+;
+
+
+
+subquery = left_bracket select_statement:select_statement right_bracket [ [as_keyword] subquery_alias:subquery_alias ] 
+;
+
+subquery_alias = identifier
+;
+
+joined_table = 
+  [ join_type:join_type ] join_keyword table_ref:table_ref on_keyword join_predicate:predicate
+ | cross_keyword:cross_keyword join_keyword table_ref:table_ref
+# | joined_table:joined_table
+;
+
+
+join_type = { inner_keyword| { left_keyword| right_keyword | full_keyword } [ outer_keyword ] }
+;
+
+
+table_ref = table_name:table_name [[as_keyword] table_alias:table_alias ]
+;
+
+@name
+table_alias = identifier
+;
+
+@name
+database_name = identifier
+;
+
+@name
+column_name = identifier
+;
+ 
+
+
+
+################################################################
+#
+#	WHERE
+#	
+#
+#
+
+where_clause = where_keyword condition
+;
+
+
+
+condition = 
+ condition:condition or:or_keyword condition:condition
+ | condition:condition and:and_keyword condition:condition
+ | not:not_keyword condition:condition
+ | predicate:predicate
+;
+   
+predicate = 
+  comparison_predicate:comparison_predicate
+ | in_predicate:in_predicate  
+ | null_predicate:null_predicate 
+ | exist_predicate:exist_predicate
+ | like_predicate :like_predicate 
+ | range_predicate:range_predicate
+; 
+ 
+comparison_predicate = 
+ expression:expression { equals | not_equal_to | greater_than_sign | less_than_sign | greater_than_equals | less_than_equals} 
+     [any_keyword | some_keyword| all_keyword ] 
+     { (expression_list:expression_list  | subquery:subquery) } 
+ ;
+ 
+range_predicate = 
+ expression:expression [not_keyword] between_keyword ~ expression and_keyword expression:expression
+ ;
+ 
+in_predicate = 
+ expression:expression [not_keyword] in_keyword ~ left_bracket { (expression_list:expression_list | subquery:subquery) } right_bracket
+ ;
+ 
+exist_predicate = 
+ [not_keyword] exists_keyword ~ left_bracket subquery right_bracket
+;
+ 
+like_predicate = 
+ expression:expression [not_keyword] like_keyword ~ expression:expression [escape_keyword expression:expression]
+ ;
+ 
+null_predicate = 
+ expression:expression is_keyword ~ [not_keyword] null_keyword
+;
+ 
+expression_list = expression:expression [{ comma expression:expression}+]
+;
+
+
+
+################################################################
+#
+#	EXPRESSIONS
+#	
+#   Minus JSON Stuff
+#
+
+
+expression =    case_expression
+               | aggregate_expression:aggregate_expression
+               | left_bracket ~ expression:expression right_bracket
+               | left_bracket ~ subquery:subquery right_bracket
+               | expression:expression operator:operator expression:expression
+               | [identifier:identifier period ] identifier:identifier
+               | constant:constant
+               | [correlation_keyword period ] column_name:column_name
+;               
+               
+
+
+case_expression = 
+#     simple_case_expression:simple_case_expression 
+     search_case_expression:search_case_expression
+;    
+
+
+
+simple_case_expression = 
+            case_keyword #[expression:expression]
+            when_keyword expression:expression then_keyword expression:expression
+            [{ when_keyword expression:expression then_keyword expression:expression}+]
+            [ else_keyword expression:expression]
+            end_keyword [[as_keyword] column_alias:column_alias]
+;
+
+
+
+
+search_case_expression  = 
+            case_keyword 
+            when_keyword condition:condition then_keyword expression:expression
+            [{ when_keyword condition:condition then_keyword expression:expression}+] 
+            [ else_keyword expression:expression]
+            end_keyword [[as_keyword] column_alias:column_alias]
+;
+
+
+
+
+aggregate_expression = count_keyword left_bracket asterisk right_bracket 
+     | count_keyword left_bracket distinct_keyword expression_list right_bracket 
+     | agg_name left_bracket  [ all_keyword | distinct_keyword ] expression right_bracket
+     | string_agg_keyword left_bracket expression [comma delimiter] [aggregate_order_by_clause] right_bracket 
+;
+
+
+
+     
+agg_name = corr_keyword | corr_spearman_keyword| count_keyword | min_keyword 
+        | median_keyword | max_keyword | sum_keyword | avg_keyword | sttdev_keyword | var_keyword  | stddev_pop_keyword | var_pop_keyword | stddev_samp_keyword | var_samp_keyword
+;
+
+delimiter = string_literal
+;
+
+aggregate_order_by_clause = order_keyword by_keyword expression 
+    [ asc_keyword | desc_keyword ] 
+    [ nulls_keyword first_keyword | nulls_keyword last_keyword]
+;
+
+#function_expression = function_name ( expression [{comma expression}+] )
+#;
+
+scalar_subquery_expression = left_bracket subquery right_bracket
+;
+
+
+operator = left_bracket operator right_bracket | 
+    plus | hyphen | asterisk | slash | concatenate | 
+    equals| not_equal_to | greater_than_equals | greater_than_sign |
+    less_than_equals | less_than_sign | is_keyword null_keyword |
+    like_keyword | between_keyword | not_keyword | and_keyword | or_keyword
+;
+
+
+
+
+
+################################################################
+# Base elements SQL Notation
+
+letter_or_digit = (letter | digit)
+;    
+
+digit = /\d/ ;
+   
+letter = /[a-zA-Z]/
+;
+           
+
+comma = ',';    
+
+equals = '=';
+
+not_equal_to = ('!=' | '<>');
+
+dollar_sign = '$';
+  
+double_quotes = '\"';
+  
+greater_than_sign = '>';
+
+greater_than_equals = '>=';
+    
+hash_symbol = '#';
+    
+left_bracket = '(';
+
+left_square_bracket = '[';
+  
+left_curly_bracket = '{';
+   
+less_than_sign = '<';
+
+less_than_equals = '<=';
+  
+period = '.';
+    
+pipe_sign = '|';
+  
+right_bracket = ')';
+
+right_square_bracket = ']';
+  
+right_curly_bracket = '}';
+   
+sign = ('+' | '-');
+    
+single_quote = "\'";
+
+semi_colon = ';';
+
+underscore = '_';
+
+hyphen = '-'; 
+
+plus = '+';
+slash = '/';
+concatenate = '||';
+
+
+      
+apostrophe = single_quote;
+      
+approximate_numeric_literal = mantissa 'E' exponent;
+          
+exact_numeric_literal = unsigned_integer [period [ unsigned_integer ]]
+                          | period unsigned_integer;
+      
+exponent = signed_integer;
+  
+hostname = {letter | digit} + ;
+
+
+@name    
+identifier = simple_identifier | special_identifier;
+      
+mantissa = exact_numeric_literal ;
+  
+numeric_literal = signed_numeric_literal | signed_integer;
+ 
+port_number = unsigned_integer ;
+  
+schema_name = identifier ;
+              
+simple_identifier = /[A-Za-z][A-Za-z_0-9]*/;
+    
+special_identifier = double_quotes {any_character}+ double_quotes ;
+   
+signed_integer = [sign] unsigned_integer ;
+  
+signed_numeric_literal = [sign] unsigned_numeric_literal ;
+    
+string_literal = single_quote[{any_character}+]single_quote ;  
+    
+unsigned_integer = {digit}+;
+  
+unsigned_numeric_literal = exact_numeric_literal | approximate_numeric_literal;
+  
+any_character = /[A-Za-z_0-9-$%&:\.]+/;
+
+
+constant = string_literal | unsigned_numeric_literal | unsigned_integer | signed_integer | signed_numeric_literal;
+
+
+
+select_keyword = 'SELECT';
+from_keyword = 'FROM' ;
+where_keyword = 'WHERE'; 
+group_keyword = 'GROUP';
+as_keyword = 'AS';
+case_keyword = 'CASE';
+case_end_keyword = 'END';
+case_when_keyword = 'WHEN';
+top_keyword = 'TOP';
+all_keyword = 'ALL';
+distinct_keyword = 'DISTINCT';
+full_keyword = 'FULL';
+inner_keyword = 'INNER';
+join_keyword = 'JOIN';
+left_keyword = 'LEFT';
+right_keyword = 'RIGHT';
+on_keyword = 'ON';
+outer_keyword = 'OUTER';
+cross_keyword = 'CROSS';
+ 
+
+and_keyword = 'AND';
+any_keyword = 'ANY';
+between_keyword = 'BETWEEN';
+escape_keyword = 'ESCAPE';
+exists_keyword = 'EXISTS';
+in_keyword = 'IN';
+is_keyword = 'IS';
+like_keyword = 'LIKE';
+not_keyword = 'NOT';
+null_keyword = 'NULL';
+or_keyword = 'OR';
+some_keyword = 'SOME';
+
+
+
+asc_keyword = 'ASC';
+avg_keyword = 'AVG';
+by_keyword = 'BY';
+corr_keyword = 'CORR';
+corr_spearman_keyword = 'CORR_SPEARMAN';
+correlation_keyword = 'CORRELATION';
+count_keyword = 'COUNT';
+desc_keyword = 'DESC';
+else_keyword = 'ELSE';
+end_keyword = 'END';
+first_keyword = 'FIRST';
+last_keyword = 'LAST';
+max_keyword = 'MAX';
+median_keyword = 'MEDIAN';
+min_keyword = 'MIN';
+nulls_keyword = 'NULLS';
+order_keyword = 'ORDER';
+stddev_pop_keyword = 'STDDEV_POP';
+stddev_samp_keyword = 'STDDEV_SAMP';
+string_agg_keyword = 'STRING_AGG';
+sttdev_keyword = 'STDDEV';
+sum_keyword = 'SUM';
+then_keyword = 'THEN';
+var_keyword = 'VAR';
+var_pop_keyword = 'VAR_POP';
+var_samp_keyword = 'VAR_SAMP';
+
+when_keyword = 'WHEN';

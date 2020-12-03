@@ -1,0 +1,477 @@
+<between_predicate> ::= <expression> [NOT] BETWEEN <lower_expression> AND <upper_expression>
+
+CREATE ROW TABLE TEST (A BOOLEAN);
+INSERT INTO TEST VALUES (TRUE);
+INSERT INTO TEST VALUES (FALSE);
+INSERT INTO TEST VALUES (UNKNOWN);
+INSERT INTO TEST VALUES (NULL);
+
+SELECT A "boolean" FROM TEST WHERE A = TRUE;
+
+SELECT * FROM DUMMY WHERE ( 'A'>'B' ) = ( 'C'>'D' );
+
+SELECT * FROM DUMMY WHERE
+   CASE WHEN ( 'A'>'B' ) THEN TRUE WHEN NOT ( 'A'>'B' ) THEN FALSE ELSE NULL END=   
+   CASE WHEN ( 'C'>'D' ) THEN TRUE WHEN NOT ( 'C'>'D' ) THEN FALSE ELSE NULL END;
+
+
+<shorttext_type> ::= SHORTTEXT ( <unsigned_integer> ) <elem_list_shorttext>
+
+ <elem_list_shorttext> ::= <fulltext_elem> [{, <fulltext_elem>}...]
+
+<comparison_predicate> ::=  
+ <expression> { = | != | <> | > | < | >= | <= } [ ANY | SOME | ALL ] ( { <expression_list> | <subquery> } )
+
+<expression_list> ::= <expression> [{, <expression>}...]
+
+SELECT * FROM DeptTable WHERE DeptTable.LocColumn = SOME ('BOSTON','DALLAS');
+
+SELECT * FROM EmployeeTable WHERE EmployeeTable.Salary >= ALL (1400, 3000);
+
+<contains_predicate> ::= CONTAINS ( 
+ <contains_columns>, 
+ <search_string> 
+ [, <search_specifier>] )
+
+<contains_columns> ::= 
+ * 
+ | <column_name> 
+ | ( <column_list> )
+
+<column_list> ::=
+( <column_name> [,<..>] )
+
+<search_string> ::= <string_const>
+
+<search_specifier>  ::= 
+ [<search_type>] [<opt_search_specifier2_list>]
+ | <search_specifier2_list>
+ 
+<opt_search_specifier2_list> ::= 
+ (empty, nothing specified)
+ | <search_specifier2_list>
+ 
+<search_type> ::= 
+ <exact_search> 
+ | <fuzzy_search> 
+ | <linguistic_search>
+ 
+<search_specifier2_list> ::= 
+ <search_specifier2>
+ | <search_specifier2_list> , <search_specifier2>
+ 
+<search_specifier2> ::=  
+ <weights> 
+ | <language>
+ | <fulltext>
+ 
+<fulltext> ::= <FULLTEXT> 
+ <(ON>) 
+ | <(OFF>)
+ | (<AUTOMATIC>)
+
+<exact_search> ::= 
+ EXACT 
+ | EXACT ( <additional_params> )
+  
+<fuzzy_search> ::= 
+ FUZZY 
+ | FUZZY ( <fuzzy_params> ) 
+ | FUZZY ( <fuzzy_params_list> )
+
+<fuzzy_params_list>  ::= ( <fuzzy_params> ) , <fuzzy_params_list2>
+
+<fuzzy_params_list2> ::= 
+ ( <fuzzy_params> ) 
+ | <fuzzy_params_list2> , ( <fuzzy_params> )
+ 
+<fuzzy_params> ::= 
+ <float_const> 
+ | <float_const> , <additional_params> 
+ | NULL , <additional_params>
+
+<linguistic_search> ::= 
+ LINGUISTIC
+ | LINGUISTIC ( <additional_params> )
+ 
+ <weights> ::= WEIGHT ( <float_const_list> )
+ 
+ <language> ::= LANGUAGE ( <string_const> )
+ 
+ <additional_params> ::= <string_const>
+
+CREATE SCHEMA mySchema;
+CREATE COLUMN TABLE mySchema.SEARCH_TEXT( Content TEXT FAST PREPROCESS OFF, Descrip TEXT FAST PREPROCESS OFF, Comment TEXT FAST PREPROCESS OFF );  
+INSERT INTO mySchema.SEARCH_TEXT VALUES( 'Blue baseball cap', 'Vintage', 'Out of stock');  
+INSERT INTO mySchema.SEARCH_TEXT VALUES( 'Red car', 'Vintage', 'Taking orders' );  
+INSERT INTO mySchema.SEARCH_TEXT VALUES( 'Bluish sky', 'Retro', 'Discontinued' );
+
+SELECT SCORE() AS SCORE,*  
+   FROM mySchema.SEARCH_TEXT  
+   WHERE CONTAINS(CONTENT,'cap',FUZZY(0.0))  
+   ORDER BY SCORE DESC;
+
+SELECT SCORE() AS SCORE,*  
+   FROM mySchema.SEARCH_TEXT  
+   WHERE CONTAINS(CONTENT,'cap',FUZZY(0.9))  
+   ORDER BY SCORE DESC
+
+SELECT * FROM mySchema.SEARCH_TEXT WHERE CONTAINS(CONTENT,'cap OR sky');
+
+SELECT * FROM mySchema.SEARCH_TEXT WHERE CONTAINS(CONTENT, '"baseball cap"');
+
+SELECT * FROM MySchema.SEARCH_TEXT WHERE CONTAINS (*, 'take', LINGUISTIC);
+
+SELECT * FROM mySchema.SEARCH_TEXT WHERE CONTAINS (( Content, Descrip ), 'vintage');
+SELECT * FROM mySchema.SEARCH_TEXT WHERE CONTAINS (*, 'vintage');
+
+SELECT 'Brian' "character string 1", '100' "character string 2", N'abc' "unicode string" FROM DUMMY;
+
+SELECT 123 "integer", 123.4 "decimal1", 1.234e2 "decimal2", 0x0abc "hexadecimal" FROM DUMMY;
+
+SELECT X'00abcd' "binary string 1", x'dcba00' "binary string 2" FROM DUMMY;
+
+SELECT date'2010-01-01' "date", time'11:00:00.001' "time", timestamp'2011-12-31 23:59:59' "timestamp" FROM DUMMY;
+
+CREATE TABLE T1(A TIMESTAMP);
+INSERT INTO T1 VALUES ('2018/01/02 10:00:00'); 	--> OK
+INSERT INTO T1 VALUES ('02/01/2018 10:00:00'); 	--> ERROR
+SELECT TO_VARCHAR(A) FROM T1; 				  --> 2018-01-02 10:00:00.0000000
+
+SET 'TIMESTAMP_FORMAT' = 'DD/MM/YYYY HH:MI:SS';
+
+CREATE TABLE T2(A TIMESTAMP);
+INSERT INTO T2 VALUES ('2018/01/02 10:00:00'); 	--> ERROR
+INSERT INTO T2 VALUES ('02/01/2018 10:00:00'); 	--> OK
+
+SELECT TO_VARCHAR(A) FROM T2; 	--> 02/01/2018 10:00:00 
+
+CREATE ROW TABLE T (A INT, B DATE, C DATE);
+INSERT INTO T VALUES (1, '', '0001-01-01');
+INSERT INTO T VALUES (2, '0000-00-00', '0001-01-01');
+INSERT INTO T VALUES (3, '0000-00-00', '0001-01-01');
+INSERT INTO T VALUES (4, '0001-01-01', '0001-01-01');
+INSERT INTO T VALUES (5, NULL, '0001-01-01');
+
+SELECT * FROM T WHERE B = '00000000';
+SELECT * FROM T WHERE B = '';
+SELECT * FROM T WHERE B IS NOT NULL;
+SELECT * FROM T;
+SELECT DAYS_BETWEEN(B, C) FROM T;
+
+INSERT INTO my_tbl VALUES ('1957-06-13'); 
+
+INSERT INTO my_tbl VALUES ('1957-06-13');
+
+INSERT INTO my_tbl VALUES ('1957/06/13');
+
+INSERT INTO my_tbl VALUES ('1957/06-13');
+
+INSERT INTO my_tbl VALUES ('1957-06/13');
+
+INSERT INTO my_tbl VALUES ('19570613');
+
+INSERT INTO my_tbl VALUES (TO_DATE('2040-Jan-10', 'YYYY-MON-DD'));
+
+INSERT INTO my_tbl VALUES (TO_DATE('Jan-10', 'MON-DD'));
+
+INSERT INTO my_tbl VALUES (TO_DATE('2040-January-10', 'YYYY-MONTH-DD'));
+
+INSERT INTO my_tbl VALUES (TO_DATE('January-10', 'MONTH-DD'));
+
+INSERT INTO my_tbl VALUES (TO_DATE('2040-I-10', 'YYYY-RM-DD'));
+
+INSERT INTO my_tbl VALUES (TO_DATE('I-10', 'RM-DD'));
+
+INSERT INTO my_tbl VALUES (TO_DATE('204', 'DDD'));
+
+INSERT INTO my_tbl VALUES (TO_DATE('2001-204','YYYY-DDD'));
+
+INSERT INTO my_tbl VALUES ('23:59:59');
+
+INSERT INTO my_tbl VALUES ('3:47:39 AM');
+
+INSERT INTO my_tbl VALUES ('9:9:9 AM');
+
+INSERT INTO my_tbl VALUES (TO_TIME('11:59:59','HH12:MI:SS');
+
+INSERT INTO my_tbl VALUES (TO_TIME('12345', 'SSSSS'));
+
+INSERT INTO my_tbl VALUES (TO_TIMESTAMP('2011-05-11 12:59.999','YYYY-MM-DD HH:MI:SS.FF'));
+
+<exists_predicate> ::= [NOT] EXISTS ( <subquery> )
+
+<expression> ::= <case_expression>
+               | <function_expression>
+               | <aggregate_expression>
+               | (<expression> )
+               | ( <subquery> )
+               | - <expression>
+               | <expression> <operator> <expression>
+               | <variable_name>
+               | <constant>
+               | [<correlation_name>.]<column_name>
+
+
+<case_expression> ::= <simple_case_expression> | <search_case_expression>
+
+<simple_case_expression> ::= 
+            CASE <expression>
+            WHEN <expression> THEN <expression>
+            [{ WHEN <expression> THEN <expression>}…]
+            [ ELSE <expression>]
+            END
+
+<search_case_expression> > ::= 
+            CASE 
+            WHEN <condition> THEN <expression>
+            [{ WHEN <condition> THEN <expression>}…] 
+            [ ELSE <expression>]
+            END
+
+<condition> ::= <condition> OR <condition> | <condition> AND <condition>
+              | NOT <condition> | ( <condition> ) | <predicate>
+
+
+ <function_expression> ::= <function_name> ( <expression> [{, <expression>}...] )
+
+
+ <aggregate_expression> ::= 
+ COUNT(*) 
+ | COUNT ( DISTINCT <expression_list> ) 
+ | <agg_name> (  [ ALL | DISTINCT ] <expression> ) 
+ | STRING_AGG ( <expression> [, <delimiter>] [<aggregate_order_by_clause>]) 
+
+<agg_name> ::= CORR | CORR_SPEARMAN | COUNT | MIN | MEDIAN | MAX | SUM | AVG | STDDEV | VAR  | STDDEV_POP | VAR_POP | STDDEV_SAMP | VAR_SAMP
+<delimiter> ::= <string_constant>
+<aggregate_order_by_clause> ::= ORDER BY <expression> [ ASC | DESC ] [ NULLS FIRST | NULLS LAST]
+
+CREATE ROW TABLE T (A INT, B INT);
+ INSERT INTO T VALUES (NULL, NULL);
+ INSERT INTO T VALUES (1, NULL);
+ INSERT INTO T VALUES (1, NULL);
+ INSERT INTO T VALUES (NULL, 1);
+ INSERT INTO T VALUES (1, 1);
+ INSERT INTO T VALUES (1, 1);
+
+ SELECT COUNT (DISTINCT A, B) AS DISTINCT_A_B FROM T;
+
+ distinct_a_b
+ 3
+
+<json_object_expression> ::= {"<key>":<json_value_expression>}
+
+<json_value_expression> ::= '<string>' 
+ | <numeric_literal>
+ | <boolean_literal>
+ | NULL
+ | <path_expression>
+ | <json_object_expression>
+ | <json_array_expression>
+
+<json_array_expression> ::= [ <json_array_value_expression>,… ]
+
+<json_array_value_expression> ::= '<string>' 
+ | <numeric_literal>
+ | <boolean_literal>
+ | NULL
+ | <path_expression>
+ | <json_object_expression>
+
+<scalar_subquery_expression> ::= (<subquery>)
+
+ SELECT DepartmentName, COUNT(*), 'out of',
+ (SELECT COUNT(*) FROM Employees)
+ FROM Departments AS D, Employees AS E
+ WHERE D.DepartmentID = E.DepartmentID
+ GROUP BY DepartmentName;
+
+<in_predicate> ::= <search_for_expression> [ NOT ] IN { <search_in_expression_list> | <subquery> }
+
+<search_in_expression_list> ::= <expression> [{, <expression> }...]
+
+CREATE COLUMN TABLE "my_tab"
+( order_nr NVARCHAR(10),
+  item_nr  INTEGER,
+  some_text NVARCHAR(100),
+  PRIMARY KEY (order_nr, item_nr) );
+  
+INSERT INTO "my_tab" (order_nr, item_nr, some_text) VALUES ('A000000001', 1, 'A1 First Item');
+INSERT INTO "my_tab" (order_nr, item_nr, some_text) VALUES ('A000000001', 2, 'A1 Second Item');
+INSERT INTO "my_tab" (order_nr, item_nr, some_text) VALUES ('B000000001', 1, 'B1 First Item');
+INSERT INTO "my_tab" (order_nr, item_nr, some_text) VALUES ('A000000002', 1, 'A2 First Item');
+INSERT INTO "my_tab" (order_nr, item_nr, some_text) VALUES ('A000000002', 2, 'A2 Second Item');
+
+SELECT * FROM "my_tab"
+   WHERE (order_nr, item_nr) = ('A000000001', 2);
+    
+ SELECT * FROM "my_tab"
+   WHERE (order_nr, item_nr) <> ('A000000001', 2);
+
+SELECT * FROM "my_tab"
+   WHERE (order_nr, item_nr) != ('A000000001', 2);
+
+ -- works only when sub-select returns zero or one row
+SELECT * FROM "my_tab"
+   WHERE (order_nr, item_nr) != (select  order_nr, item_nr from "my_tab" where some_text like 'B1%');
+      
+-- error: feature not supported: only '=' and '<>'/'!=' operators are allowed here
+SELECT * FROM "my_tab"
+   WHERE (order_nr, item_nr) > ('A000000001', 2);
+
+-- quantified comparison with SOME/ANY/ALL and sub-select is also supported          
+ SELECT * FROM "my_tab"
+   WHERE (order_nr, item_nr) <> ALL (select order_nr, item_nr from "my_tab" where some_text like 'B1%');
+   
+-- IN predicate is equivalent to quantified comparison = ANY/SOME
+SELECT * FROM "my_tab"
+   WHERE (order_nr, item_nr) in (('A000000001', 2), ('B000000001', 1));
+SELECT * FROM "my_tab"
+   WHERE (order_nr, item_nr) = ANY (('A000000001', 2), ('B000000001', 1));
+
+<text_type> ::= TEXT <opt_fulltext_elem_list_text>
+
+<opt_fulltext_elem_list_text> ::= <fulltext_elem> [{, <fulltext_elem>}...]
+
+<bintext_type> ::= BINTEXT <opt_fulltext_elem_list_bintext>
+
+<opt_fulltext_elem_list_bintext> ::= <fulltext_elem> [{, <fulltext_elem>}...]
+
+<fulltext_elem> ::= LANGUAGE COLUMN <column_name>
+                   | LANGUAGE DETECTION ( <string_literal_list> )
+                   | MIME TYPE COLUMN <column_name>
+                   | <change_tracking_elem>
+                   | FUZZY SEARCH INDEX <on_off>
+                   | PHRASE INDEX RATIO <index_ratio>
+                   | CONFIGURATION <string_literal>
+                   | SEARCH ONLY <on_off>
+                   | FAST PREPROCESS <on_off>
+                   | TEXT ANALYSIS <on_off>
+                   | MIME TYPE <string_literal>
+                   | TOKEN SEPARATORS <string_literal>
+
+ <change_tracking_elem> ::= SYNC[HRONOUS]
+                          | ASYNC[HRONOUS] [FLUSH [QUEUE] <flush_queue_elem>]
+
+ <flush_queue_elem> ::= EVERY <integer_literal> MINUTES
+                      | AFTER <integer_literal> DOCUMENTS
+                      | EVERY <integer_literal> MINUTES OR AFTER <integer_literal> DOCUMENTS
+
+<like_predicate> ::= <source_expression> [ NOT ] LIKE <pattern_expression> 
+   [ ESCAPE <escape_expression> ]
+
+<regex_subject_string> LIKE_REGEXPR <pattern> [ FLAG <flag> ]
+
+<regex_subject_string> ::= <string>
+
+<pattern> ::= !!Perl Compatible Regular Expression
+
+<flag> ::= i | m | s | x
+
+SELECT * FROM  mytab  WHERE text  LIKE_REGEXPR ' them|this ';
+
+<expression> [NOT] MEMBER OF <array_value_expression>
+
+CREATE COLUMN TABLE ARRAY_TEST (IDX INT, VAL INT ARRAY);
+INSERT INTO ARRAY_TEST VALUES (1, ARRAY(1, 2, 3));
+INSERT INTO ARRAY_TEST VALUES (2, ARRAY(10, 20, 30, 40));
+INSERT INTO ARRAY_TEST VALUES (3, ARRAY(10, 20, 30, 40));
+INSERT INTO ARRAY_TEST VALUES (4, ARRAY(80, 90, 100, 110));
+
+SELECT IDX FROM ARRAY_TEST WHERE 10 MEMBER OF VAL;
+
+SELECT IDX FROM ARRAY_TEST WHERE 10 NOT MEMBER OF VAL;
+
+<null_predicate> ::= <expression> IS [NOT] NULL
+
+SELECT TO_DOUBLE(0.1) + TO_DOUBLE(4.6) AS DOUBLE_SUM FROM DUMMY;
+
+<comparison_operation> ::= <expression1> <comparison_operator> <expression2> 
+
+
+ALL
+ALTER
+AS
+BEFORE
+BEGIN
+BOTH
+CASE
+CHAR
+CONDITION
+CONNECT
+CROSS
+CUBE
+CURRENT_CONNECTION
+CURRENT_DATE
+CURRENT_SCHEMA
+CURRENT_TIME
+CURRENT_TIMESTAMP
+CURRENT_TRANSACTION_ISOLATION_LEVEL
+CURRENT_USER
+CURRENT_UTCDATE
+CURRENT_UTCTIME
+CURRENT_UTCTIMESTAMP
+CURRVAL
+CURSOR
+DECLARE
+DISTINCT
+ELSE
+ELSEIF
+END
+EXCEPT
+EXCEPTION
+EXEC
+FALSE
+FOR
+FROM
+FULL
+GROUP
+HAVING
+IF
+IN
+INNER
+INOUT
+INTERSECT
+INTO
+IS
+JOIN
+LATERAL
+LEADING
+LEFT
+LIMIT
+LOOP
+MINUS
+NATURAL
+NCHAR
+NEXTVAL
+NULL
+ON
+ORDER
+OUT
+PRIOR
+RETURN
+RETURNS
+REVERSE
+RIGHT
+ROLLUP
+ROWID
+SELECT
+SESSION_USER
+SET
+SQL
+START
+SYSUUID
+TABLESAMPLE
+TOP
+TRAILING
+TRUE
+UNION
+UNKNOWN
+USING
+UTCTIMESTAMP
+VALUES
+WHEN
+WHERE
+WHILE
+WITH
+
