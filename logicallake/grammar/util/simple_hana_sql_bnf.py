@@ -10,7 +10,7 @@ def main():
     
     import tatsu
     
-    input =  """SELECT * FROM masterdata."DataIngestion.SDI.FLATFILE.MDM::APO_LOCATION" ;"""
+    input =  """SELECT * FROM MARA AS A WHERE 1 = 1 ;"""
 
     #input = "SELECT * FROM MARA;"
     
@@ -19,7 +19,7 @@ def main():
     with open(GRAMMAR_DIR + "HANA_SQL_Grammar.bnf") as f:
         grammar = f.read()
     
-    model = compile(grammar)
+    model = compile(grammar, verbose=True)
 
     munged_input = input.replace(',', ' , ')
 

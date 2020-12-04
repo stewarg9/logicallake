@@ -11,7 +11,7 @@
 
 @@ignorecase :: True
 
-@@keyword :: SELECT LEFT RIGHT OUTER INNER FROM WHERE AND OR ON ANY ALL CASE END BY GROUP HAVING COUNT SUM AVG NULL IS IN NOT 
+@@keyword :: SELECT LEFT RIGHT OUTER INNER FROM WHERE AND OR ON ANY ALL CASE END BY GROUP HAVING COUNT SUM AVG NULL IS IN NOT WHEN AS
 
 #Select Statement (DML)
 start = select_statement
@@ -42,10 +42,11 @@ select_list = selectitem:select_item  [{comma selectitem:select_item}+]
 ;
 
 select_item =
-     expression:expression [[as_keyword] ~ [column_alias:column_alias]]
-  |  [ table_alias:table_alias period ] column_name:column_name    
+     [ table_alias:table_alias period ] column_name:column_name [[as_keyword] [column_alias:column_alias]] 
   |  [ table_alias:table_alias period ] asterisk    
   |  [ table_name:table_name period   ] asterisk
+  |  expression:expression [[as_keyword] ~ [column_alias:column_alias]]
+  
 ;
 
 @name
@@ -121,13 +122,13 @@ column_name = identifier
 #
 #
 
-where_clause = where_keyword condition
+where_clause = where_keyword condition:condition
 ;
 
 
-
 condition = 
- condition:condition or:or_keyword condition:condition
+ left_bracket condition:condition right_bracket
+ | condition:condition or:or_keyword condition:condition
  | condition:condition and:and_keyword condition:condition
  | not:not_keyword condition:condition
  | predicate:predicate
@@ -143,10 +144,14 @@ predicate =
 ; 
  
 comparison_predicate = 
- expression:expression { equals | not_equal_to | greater_than_sign | less_than_sign | greater_than_equals | less_than_equals} 
-     [any_keyword | some_keyword| all_keyword ] 
-     { (expression_list:expression_list  | subquery:subquery) } 
+ expression:expression comparison_operator:comparison_operator expression:expression 
  ;
+
+
+comparison_operator = 
+equals | not_equal_to | greater_than_sign | less_than_sign | greater_than_equals | less_than_equals
+;
+
  
 range_predicate = 
  expression:expression [not_keyword] between_keyword ~ expression and_keyword expression:expression
@@ -181,14 +186,15 @@ expression_list = expression:expression [{ comma expression:expression}+]
 #
 
 
-expression =    case_expression
-               | aggregate_expression:aggregate_expression
-               | left_bracket ~ expression:expression right_bracket
-               | left_bracket ~ subquery:subquery right_bracket
-               | expression:expression operator:operator expression:expression
-               | [identifier:identifier period ] identifier:identifier
+expression =   left_bracket  expression:expression right_bracket
+               | left_bracket  subquery:subquery right_bracket
                | constant:constant
-               | [correlation_keyword period ] column_name:column_name
+               
+               | [identifier:identifier period ] identifier:identifier               
+               | case_expression:case_expression
+               | aggregate_expression:aggregate_expression
+               | expression:expression operator:operator ~ expression:expression
+#              | [correlation_keyword period ] column_name:column_name
 ;               
                
 
@@ -201,20 +207,26 @@ case_expression =
 
 
 simple_case_expression = 
-            case_keyword #[expression:expression]
-            when_keyword expression:expression then_keyword expression:expression
-            [{ when_keyword expression:expression then_keyword expression:expression}+]
+            case_keyword [expression:expression]
+            when_expression:when_expression
+            [{ when_expression:when_expression}+]
             [ else_keyword expression:expression]
             end_keyword [[as_keyword] column_alias:column_alias]
 ;
 
+when_expression = 
+when_keyword expression:expression then_keyword expression:expression
+;
 
+
+when_condition = when_keyword condition:condition then_keyword expression:expression
+;
 
 
 search_case_expression  = 
             case_keyword 
-            when_keyword condition:condition then_keyword expression:expression
-            [{ when_keyword condition:condition then_keyword expression:expression}+] 
+            when_condition:when_condition
+            [{ when_condition:when_condition }+] 
             [ else_keyword expression:expression]
             end_keyword [[as_keyword] column_alias:column_alias]
 ;
@@ -250,14 +262,10 @@ scalar_subquery_expression = left_bracket subquery right_bracket
 ;
 
 
-operator = left_bracket operator right_bracket | 
-    plus | hyphen | asterisk | slash | concatenate | 
-    equals| not_equal_to | greater_than_equals | greater_than_sign |
-    less_than_equals | less_than_sign | is_keyword null_keyword |
-    like_keyword | between_keyword | not_keyword | and_keyword | or_keyword
+operator = comparison_operator 
+    | plus | hyphen | asterisk | slash | concatenate | is_keyword null_keyword 
+    | like_keyword | between_keyword | not_keyword | and_keyword | or_keyword
 ;
-
-
 
 
 
@@ -329,7 +337,7 @@ apostrophe = single_quote;
       
 approximate_numeric_literal = mantissa 'E' exponent;
           
-exact_numeric_literal = unsigned_integer [period [ unsigned_integer ]]
+exact_numeric_literal = unsigned_integer ~ [period [ unsigned_integer ]]
                           | period unsigned_integer;
       
 exponent = signed_integer;
@@ -358,15 +366,22 @@ signed_numeric_literal = [sign] unsigned_numeric_literal ;
     
 string_literal = single_quote[{any_character}+]single_quote ;  
     
-unsigned_integer = {digit}+;
+unsigned_integer = digit [{digit}*]
+;
   
 unsigned_numeric_literal = exact_numeric_literal | approximate_numeric_literal;
   
 any_character = /[A-Za-z_0-9-$%&:\.]+/;
 
+boolean_value = true_keyword | false_keyword
+;
 
-constant = string_literal | unsigned_numeric_literal | unsigned_integer | signed_integer | signed_numeric_literal;
+constant = boolean_value | string_literal | unsigned_numeric_literal | unsigned_integer | signed_integer | signed_numeric_literal;
 
+
+
+true_keyword = 'TRUE';
+false_keyword = 'FALSE';
 
 
 select_keyword = 'SELECT';
