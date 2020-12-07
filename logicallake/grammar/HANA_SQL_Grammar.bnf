@@ -14,7 +14,8 @@
 @@keyword :: SELECT LEFT RIGHT OUTER INNER FROM WHERE AND OR ON ANY ALL CASE END BY GROUP HAVING COUNT SUM AVG NULL IS IN NOT WHEN AS
 
 #Select Statement (DML)
-start = select_statement
+start = select_statement semi_colon $
+      | left_bracket select_statement right_bracket semi_colon $
 ;
 
 ################################################################
@@ -29,8 +30,6 @@ select_clause:select_clause
 from_clause:from_clause 
 [joined_table:joined_table] [{joined_table:joined_table}+] 
 [where_clause:where_clause]
-semi_colon
-$
 ;
 
 select_clause = 
@@ -50,7 +49,8 @@ select_item =
 ;
 
 @name
-table_name = [schema_name:schema_name period] identifier:identifier
+table_name = schema_name:schema_name period identifier:identifier
+          |  identifier:identifier
 ;
 
 @name
@@ -69,7 +69,7 @@ asterisk = '*';
 #
 
 
-from_clause = from_keyword table_expression:table_expression [{comma table_expression:table_expression}+]
+from_clause = from_keyword table_expression:table_expression #[{comma table_expression:table_expression}+]
 ;
 
 table_expression = 
@@ -80,7 +80,8 @@ table_expression =
 
 
 
-subquery = left_bracket select_statement:select_statement right_bracket [ [as_keyword] subquery_alias:subquery_alias ] 
+subquery = left_bracket select_statement:select_statement right_bracket 
+    [ [as_keyword] subquery_alias:subquery_alias ] 
 ;
 
 subquery_alias = identifier
@@ -93,7 +94,7 @@ joined_table =
 ;
 
 
-join_type = { inner_keyword| { left_keyword| right_keyword | full_keyword } [ outer_keyword ] }
+join_type = (inner_keyword| { left_keyword| right_keyword | full_keyword } [ outer_keyword ] )
 ;
 
 
@@ -335,46 +336,77 @@ concatenate = '||';
       
 apostrophe = single_quote;
       
-approximate_numeric_literal = mantissa 'E' exponent;
-          
-exact_numeric_literal = unsigned_integer ~ [period [ unsigned_integer ]]
-                          | period unsigned_integer;
-      
-exponent = signed_integer;
   
 hostname = {letter | digit} + ;
+ 
+port_number = unsigned_integer ;
+
+@name  
+schema_name = identifier ;
+
+#
+# Identifiers
+#
+#
 
 
 @name    
 identifier = simple_identifier | special_identifier;
       
-mantissa = exact_numeric_literal ;
-  
-numeric_literal = signed_numeric_literal | signed_integer;
- 
-port_number = unsigned_integer ;
-  
-schema_name = identifier ;
               
 simple_identifier = /[A-Za-z][A-Za-z_0-9]*/;
     
 special_identifier = double_quotes {any_character}+ double_quotes ;
+
+
+#
+# Strings
+#
+#
    
-signed_integer = [sign] unsigned_integer ;
-  
-signed_numeric_literal = [sign] unsigned_numeric_literal ;
     
 string_literal = single_quote[{any_character}+]single_quote ;  
     
+any_character = /[A-Za-z_0-9-$%&:\.]+/;
+    
+
+
+
+
+# 
+# Numbers
+#
+#
+
+approximate_numeric_literal = mantissa 'E' exponent;
+          
+exact_numeric_literal = unsigned_integer #[ period [ unsigned_integer ]]
+                      | period unsigned_integer;
+      
+exponent = signed_integer;
+    
+    
 unsigned_integer = digit [{digit}*]
 ;
+
+signed_integer = [sign] unsigned_integer ;
+  
+signed_numeric_literal = [sign] unsigned_numeric_literal ;
+
   
 unsigned_numeric_literal = exact_numeric_literal | approximate_numeric_literal;
   
-any_character = /[A-Za-z_0-9-$%&:\.]+/;
+
+mantissa = exact_numeric_literal ;
+  
+numeric_literal = signed_numeric_literal | signed_integer;
+
+
 
 boolean_value = true_keyword | false_keyword
 ;
+
+
 
 constant = boolean_value | string_literal | unsigned_numeric_literal | unsigned_integer | signed_integer | signed_numeric_literal;
 
@@ -382,6 +414,7 @@ constant = boolean_value | string_literal | unsigned_numeric_literal | unsigned_
 
 true_keyword = 'TRUE';
 false_keyword = 'FALSE';
+
 
 
 select_keyword = 'SELECT';

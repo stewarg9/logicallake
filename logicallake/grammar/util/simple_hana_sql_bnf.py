@@ -10,7 +10,7 @@ def main():
     
     import tatsu
     
-    input =  """SELECT * FROM MARA AS A WHERE 1 = 1 ;"""
+    input =  """SELECT * FROM (SELECT ZSID FROM (SELECT B.* FROM (SELECT A.ID FROM DUNCE AS A) B ) C);"""
 
     #input = "SELECT * FROM MARA;"
     
@@ -27,7 +27,7 @@ def main():
 
     #print(ast)
     
-    result = str(json.dumps(asjson(ast), sort_keys = True))
+    result = str(json.dumps(asjson(ast), sort_keys = True, indent=2))
 
     print(result)
 
